@@ -1,0 +1,401 @@
+@file:OptIn(ExperimentalSnapperApi::class)
+
+package com.whereisdarran.myapplication
+
+import android.graphics.drawable.ColorDrawable
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.annotation.ColorInt
+import androidx.compose.foundation.*
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.Card
+import androidx.compose.material.MaterialTheme
+import androidx.compose.material.Surface
+import androidx.compose.material.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.min
+import coil.compose.rememberImagePainter
+import coil.decode.SvgDecoder
+import com.whereisdarran.myapplication.ui.theme.MyApplicationTheme
+import dev.chrisbanes.snapper.ExperimentalSnapperApi
+import dev.chrisbanes.snapper.SnapperFlingBehavior
+import dev.chrisbanes.snapper.rememberSnapperFlingBehavior
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            MyApplicationTheme {
+                // A surface container using the 'background' color from the theme
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colors.background
+                ) {
+                    Greeting("Android")
+                }
+            }
+        }
+    }
+}
+
+val spacingHorizontal = 20.dp
+
+
+@Composable
+fun Greeting(name: String) {
+    Text(text = "Hello $name!")
+}
+
+@Preview(showBackground = true)
+@Composable
+fun DefaultPreview() {
+    MyApplicationTheme {
+        Greeting("Android")
+    }
+}
+
+@Composable
+fun HomeCarouselView(carouselModel: List<BasicCardModel>, onAction: (action: Action) -> Unit) {
+    val cardWidth = min(
+        LocalConfiguration.current.screenWidthDp.dp - 40.dp,
+        400.dp
+    )
+    val lazyListState = rememberLazyListState()
+    val contentPadding = PaddingValues(0.dp, 0.dp)
+    LazyRow(
+        state = lazyListState,
+        contentPadding = contentPadding,
+        flingBehavior = rememberRowSnapping(
+            lazyListState = lazyListState,
+            contentPadding = contentPadding
+        ),
+        horizontalArrangement = Arrangement.spacedBy(spacingHorizontal)
+    ) {
+        items(carouselModel.size) { index ->
+            when (val item = carouselModel[index]) {
+                is BasicCardModel -> {
+                    val cardTextColor = item.textColor?.toColor() ?: Color.White
+                    val onClick = {
+                        item.action?.run {
+                            onAction(this)
+                        }
+                    }
+                    BasicCardView(
+                        modifier = Modifier
+                            .width(
+                                cardWidth
+                            ),
+                        Color(item.palette.getMediumColor()),
+                        backgroundImage = item.imageUrl?.let {
+                            ImageSource.Url(
+                                it, placeholder = ImageSource.Color(item.palette.getDarkColor())
+                            )
+                        },
+                        textColor = cardTextColor,
+                        label = item.label,
+                        title = item.title,
+                        bubbleText = item.bubbleText,
+                        bubbleImageSource = item.bubbleImageUrl?.let { ImageSource.Url(it) },
+                        bubbleTextColor = cardTextColor,
+                        bubbleBackgroundColor = Color(item.palette.getDarkColor()),
+                        onClick = if (item.action == null) {
+                            null
+                        } else {
+                            onClick
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun rememberRowSnapping(
+    lazyListState: LazyListState,
+    contentPadding: PaddingValues
+): SnapperFlingBehavior =
+    rememberSnapperFlingBehavior(
+        lazyListState = lazyListState,
+        endContentPadding = contentPadding.calculateEndPadding(LayoutDirection.Ltr),
+        snapIndex = { _, startIndex, targetIndex ->
+            when {
+                startIndex > targetIndex -> startIndex - 1
+                startIndex < targetIndex -> startIndex + 1
+                else -> targetIndex
+            }
+        }
+    )
+
+sealed class ImageSource {
+    data class DrawableRes(@androidx.annotation.DrawableRes val resource: Int) : ImageSource()
+    data class Drawable(val drawable: android.graphics.drawable.Drawable) : ImageSource()
+    data class Color(@ColorInt val color: Int) : ImageSource()
+    data class Url(val url: String, val placeholder: ImageSource? = null) : ImageSource()
+}
+
+data class BasicCardModel(
+    val title: String?,
+    val label: String?,
+    val imageUrl: String?,
+    val bubbleImageUrl: String?,
+    val bubbleText: String?,
+    val textColor: String?,
+    val palette: ColorPalette,
+    val action: Action?
+)
+
+data class ColorPalette(
+    @JvmField val lightColor: String,
+    @JvmField val defaultColor: String,
+    @JvmField val mediumColor: String,
+    @JvmField val darkColor: String
+) {
+
+    @ColorInt
+    fun getLightColor(): Int = cachedColors.getOrPut(lightColor) { lightColor.parseColor() }
+
+    @ColorInt
+    fun getDefaultColor(): Int = cachedColors.getOrPut(defaultColor) { defaultColor.parseColor() }
+
+    @ColorInt
+    fun getMediumColor(): Int = cachedColors.getOrPut(mediumColor) { mediumColor.parseColor() }
+
+    @ColorInt
+    fun getDarkColor(): Int = cachedColors.getOrPut(darkColor) { darkColor.parseColor() }
+
+    companion object {
+        private val cachedColors = mutableMapOf<String, Int>()
+    }
+
+}
+
+@ColorInt
+fun String?.parseColor(fallbackColor: Int = android.graphics.Color.TRANSPARENT): Int {
+    this?.let { colorString ->
+        return try {
+            android.graphics.Color.parseColor(colorString)
+        } catch (e: Exception) {
+            fallbackColor
+        }
+    }
+    return fallbackColor
+}
+
+sealed class Action {
+    data class DeeplinkAction(
+        val type: ActionOpenType,
+        val value: Deeplink
+    ) : Action()
+
+    data class BrowserAction(
+        val type: ActionOpenType,
+        val value: Browser
+    ) : Action()
+}
+
+
+data class Deeplink(val uri: String)
+
+
+data class Browser(
+    val uri: String,
+    val isThirdParty: Boolean = false
+)
+
+enum class ActionOpenType {
+    BROWSER,
+    DEEP_LINK,
+    UNKNOWN
+}
+
+fun CharSequence.toColor() = Color(android.graphics.Color.parseColor(this.toString()))
+
+@Composable
+fun FooCard(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(dimensionResource(id = R.dimen.corner_radius_card)),
+        content = content,
+        elevation = dimensionResource(id = R.dimen.elevation_card)
+    )
+}
+
+@Composable
+fun BasicCardView(
+    modifier: Modifier,
+    backgroundColor: Color,
+    backgroundImage: ImageSource? = null,
+    label: String? = null,
+    title: String? = null,
+    textColor: Color,
+    bubbleText: String? = null,
+    bubbleTextColor: Color? = null,
+    bubbleImageSource: ImageSource? = null,
+    bubbleBackgroundColor: Color? = null,
+    onClick: (() -> Unit?)? = null
+) {
+
+    FooCard(
+        modifier = modifier
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = when (onClick) {
+                    null -> null
+                    else -> LocalIndication.current
+                },
+                enabled = onClick != null,
+                onClick = {
+                    onClick?.invoke()
+                })
+    ) {
+        Column(
+            modifier = Modifier
+                .background(backgroundColor)
+                .fillMaxWidth()
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(355 / 132f)
+            )
+            {
+                backgroundImage?.run {
+                    Image(
+                        painter = getImagePainter(source = this),
+                        contentDescription = null,
+                        contentScale = ContentScale.FillBounds,
+                        modifier = Modifier
+                            .matchParentSize()
+                    )
+                }
+                bubbleText?.run {
+                    BarBubble(
+                        modifier = Modifier.padding(16.dp),
+                        imageSource = bubbleImageSource,
+                        text = bubbleText,
+                        backgroundColor = bubbleBackgroundColor ?: Color.Black,
+                        fontStyle = MaterialTheme.typography.caption.copy(
+                            color = bubbleTextColor ?: Color.White
+                        )
+                    )
+                }
+            }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                label?.run {
+                    Text(
+                        text = this,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                        style = MaterialTheme.typography.caption,
+                        color = textColor
+                    )
+                }
+                title?.run {
+                    Text(
+                        text = this,
+                        style = MaterialTheme.typography.body1,
+                        color = textColor
+                    )
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
+fun getImagePainter(source: ImageSource): Painter {
+    return when (source) {
+        is ImageSource.Url -> {
+            rememberImagePainter(
+                source.url,
+                builder = {
+                    decoder(SvgDecoder(LocalContext.current))
+                    source.placeholder?.let { placeholder ->
+                        when (placeholder) {
+                            is ImageSource.Drawable -> {
+                                placeholder(placeholder.drawable)
+                            }
+                            is ImageSource.DrawableRes -> {
+                                placeholder(placeholder.resource)
+                            }
+                            is ImageSource.Color -> {
+                                placeholder(ColorDrawable(placeholder.color))
+                            }
+                            else -> {}
+                        }
+                    }
+                })
+        }
+        is ImageSource.Drawable -> {
+            rememberImagePainter(source.drawable)
+        }
+        is ImageSource.DrawableRes -> {
+            painterResource(source.resource)
+        }
+        is ImageSource.Color -> {
+            rememberImagePainter(ColorDrawable(source.color))
+        }
+    }
+}
+
+
+@Composable
+fun BarBubble(
+    modifier: Modifier = Modifier,
+    imageSource: ImageSource? = null,
+    backgroundColor: Color = MaterialTheme.colors.error,
+    strokeColor: Color = backgroundColor,
+    text: String,
+    fontStyle: TextStyle = MaterialTheme.typography.caption
+) {
+    Row(
+        modifier = modifier
+            .border(color = strokeColor, width = Dp.Hairline, shape = RoundedCornerShape(6.dp))
+            .background(color = backgroundColor, shape = RoundedCornerShape(6.dp))
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.End,
+    ) {
+        imageSource?.run {
+            Image(
+                painter = getImagePainter(source = this),
+                contentDescription = null,
+                alignment = Alignment.CenterStart,
+                modifier = Modifier
+                    .padding(end = 6.dp)
+                    .align(Alignment.CenterVertically)
+                    .height(16.dp)
+                    .width(16.dp)
+            )
+        }
+        Text(style = fontStyle, text = text)
+    }
+}

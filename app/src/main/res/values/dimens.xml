@@ -1,0 +1,10 @@
+<resources>
+
+<dimen name="elevation_footer">16dp</dimen>
+<dimen name="elevation_card">3dp</dimen>
+
+<dimen name="corner_radius_button">72dp</dimen>
+<dimen name="corner_radius_card">8dp</dimen>
+<dimen name="corner_radius_bubble">4dp</dimen>
+
+</resources>
