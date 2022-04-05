@@ -2,6 +2,7 @@
 
 package com.whereisdarran.myapplication
 
+import android.graphics.Color.*
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -24,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -43,6 +45,32 @@ import dev.chrisbanes.snapper.SnapperFlingBehavior
 import dev.chrisbanes.snapper.rememberSnapperFlingBehavior
 
 class MainActivity : ComponentActivity() {
+    val largeCard =  BasicCardModel(
+        title = "foo title, foo title, foo title, foo title, foo title, foo title, foo title, foo title, foo title, foo title, foo title, foo title, foo title, foo title, foo title, foo title",
+        label = "foo label, foo label, foo label, foo label, foo label, foo label",
+        bubbleText = "foo bubble text, " +
+                "foo bubble text, foo bubble text, foo bubble text, foo bubble text, foo bubble text, \"foo bubble text, \" +\n" +
+                "                \"foo bubble text, foo bubble text, foo bubble text, foo bubble text, foo bubble text,"
+    )
+
+    val smallCard =  BasicCardModel(
+        title = "foo title",
+        label = "foo label",
+        bubbleText = "foo bubble text"
+    )
+
+    val testObjects = listOf(
+        smallCard,
+        smallCard,
+        smallCard,
+        smallCard,
+        smallCard,
+        largeCard,
+        largeCard,
+        largeCard,
+        largeCard,
+    )
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -52,7 +80,10 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colors.background
                 ) {
-                    Greeting("Android")
+                    Column {
+                        HomeCarouselView(carouselModel = testObjects, onAction = {})
+                        Greeting("Android")
+                    }
                 }
             }
         }
@@ -95,7 +126,7 @@ fun HomeCarouselView(carouselModel: List<BasicCardModel>, onAction: (action: Act
         items(carouselModel.size) { index ->
             when (val item = carouselModel[index]) {
                 is BasicCardModel -> {
-                    val cardTextColor = item.textColor?.toColor() ?: Color.White
+                    val cardTextColor = item.textColor?.toColor() ?: Color.Blue
                     val onClick = {
                         item.action?.run {
                             onAction(this)
@@ -158,19 +189,19 @@ sealed class ImageSource {
 data class BasicCardModel(
     val title: String?,
     val label: String?,
-    val imageUrl: String?,
-    val bubbleImageUrl: String?,
+    val imageUrl: String? = "https://picsum.photos/536/354",
+    val bubbleImageUrl: String? = "https://images.pexels.com/photos/1366942/pexels-photo-1366942.jpeg?cs=srgb&dl=pexels-rodolfo-clix-1366942.jpg&fm=jpg",
     val bubbleText: String?,
-    val textColor: String?,
-    val palette: ColorPalette,
-    val action: Action?
+    val textColor: String? = null,
+    val palette: ColorPalette = ColorPalette(),
+    val action: Action? = null
 )
 
 data class ColorPalette(
-    @JvmField val lightColor: String,
-    @JvmField val defaultColor: String,
-    @JvmField val mediumColor: String,
-    @JvmField val darkColor: String
+    @JvmField val lightColor: String = MAGENTA.toString(),
+    @JvmField val defaultColor: String = GREEN.toString(),
+    @JvmField val mediumColor: String = BLUE.toString(),
+    @JvmField val darkColor: String = YELLOW.toString()
 ) {
 
     @ColorInt
