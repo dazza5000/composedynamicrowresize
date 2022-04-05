@@ -5,6 +5,7 @@ package com.whereisdarran.myapplication
 import android.graphics.Color.*
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.ColorInt
@@ -15,22 +16,22 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.Card
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Surface
-import androidx.compose.material.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.material.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
@@ -46,12 +47,21 @@ import dev.chrisbanes.snapper.rememberSnapperFlingBehavior
 
 class MainActivity : ComponentActivity() {
     val largeCard =  BasicCardModel(
-        title = "foo title, foo title, foo title, foo title, foo title, foo title, foo title, foo title, foo title, foo title, foo title, foo title, foo title, foo title, foo title, foo title",
+        title = "foo title, foo title, foo title, foo title, foo title, foo title, foo title, foo title, foo title, foo title, foo title, foo title, foo title, foo title, foo title, foo titleonnnnnnn",
         label = "foo label, foo label, foo label, foo label, foo label, foo label",
         bubbleText = "foo bubble text, " +
                 "foo bubble text, foo bubble text, foo bubble text, foo bubble text, foo bubble text, \"foo bubble text, \" +\n" +
                 "                \"foo bubble text, foo bubble text, foo bubble text, foo bubble text, foo bubble text,"
     )
+
+    val mediumCard =  BasicCardModel(
+        title = "foo title, foo title, foo title, foo title, foo title, foo title, foo title, foo title, foo title, foo title, foo title, foo title, foo title",
+        label = "foo label, foo label, foo label, foo label, foo label, foo label",
+        bubbleText = "foo bubble text, " +
+                "foo bubble text, foo bubble text, foo bubble text, foo bubble text, foo bubble text, \"foo bubble text, \" +\n" +
+                "                \"foo bubble text, foo bubble text, foo bubble text, foo bubble text, foo bubble text,"
+    )
+
 
     val smallCard =  BasicCardModel(
         title = "foo title",
@@ -65,6 +75,11 @@ class MainActivity : ComponentActivity() {
         smallCard,
         smallCard,
         smallCard,
+        mediumCard,
+        mediumCard,
+        mediumCard,
+        mediumCard,
+        mediumCard,
         largeCard,
         largeCard,
         largeCard,
@@ -113,7 +128,8 @@ fun HomeCarouselView(carouselModel: List<BasicCardModel>, onAction: (action: Act
         400.dp
     )
     val lazyListState = rememberLazyListState()
-    val contentPadding = PaddingValues(0.dp, 0.dp)
+    val contentPadding = PaddingValues(16.dp, 16.dp)
+    var titleHeightToSendDown by remember { mutableStateOf(0f) }
     LazyRow(
         state = lazyListState,
         contentPadding = contentPadding,
@@ -123,8 +139,49 @@ fun HomeCarouselView(carouselModel: List<BasicCardModel>, onAction: (action: Act
         ),
         horizontalArrangement = Arrangement.spacedBy(spacingHorizontal)
     ) {
-        items(carouselModel.size) { index ->
-            when (val item = carouselModel[index]) {
+
+        val largestTitleTextLength: BasicCardModel? = carouselModel.maxByOrNull { it.title?.length ?: 0 }
+
+        val textLayout: (TextLayoutResult) -> Unit = {
+            Log.d("darran", "darran layout $it")
+            val textCharacterLength = it.layoutInput.text.length
+            val textLayoutWidth =  it.multiParagraph.width
+
+            val widthPerCharacter = textLayoutWidth / textCharacterLength * it.lineCount
+
+            Log.d("darran", "width per character $widthPerCharacter")
+            Log.d("darran", "lineCount ${it.lineCount}")
+
+            val maxWidth = it.layoutInput.constraints.maxWidth
+
+            val heightPerLine = it.multiParagraph.height / it.lineCount
+
+            val totalWidthNeeded = (largestTitleTextLength?.title?.length ?: 1) * widthPerCharacter
+
+            val linesRequired = totalWidthNeeded / maxWidth
+            Log.d("darran", "linesRequired ${it.li")
+
+            val titleHeight = heightPerLine * linesRequired
+
+            Log.d("darran", "height calculated by textLayoutResult needed ${it.multiParagraph.height}")
+            Log.d("darran", "height calculated by algo  needed $titleHeight")
+            Log.d("darran", "height overflowhappened ${it.didOverflowHeight} ")
+            Log.d("darran", "width overflowhappened ${it.didOverflowWidth} ")
+
+            if (it.multiParagraph.height > titleHeightToSendDown) {
+                titleHeightToSendDown = it.multiParagraph.height
+            }
+
+            if (titleHeight > titleHeightToSendDown) {
+                titleHeightToSendDown = titleHeight
+            }
+
+            Log.d("darran", "title height to send down $titleHeightToSendDown")
+        }
+
+        items(carouselModel.size) { it ->
+            when (val item = carouselModel[it]) {
+
                 is BasicCardModel -> {
                     val cardTextColor = item.textColor?.toColor() ?: Color.Blue
                     val onClick = {
@@ -144,6 +201,8 @@ fun HomeCarouselView(carouselModel: List<BasicCardModel>, onAction: (action: Act
                             )
                         },
                         textColor = cardTextColor,
+                        onTitleLayout = textLayout,
+                        titleHeight = LocalDensity.current.run { titleHeightToSendDown.toInt().toDp().value },
                         label = item.label,
                         title = item.title,
                         bubbleText = item.bubbleText,
@@ -284,6 +343,8 @@ fun BasicCardView(
     label: String? = null,
     title: String? = null,
     textColor: Color,
+    onTitleLayout: (TextLayoutResult) -> Unit = {},
+    titleHeight: Float = 0f,
     bubbleText: String? = null,
     bubbleTextColor: Color? = null,
     bubbleImageSource: ImageSource? = null,
@@ -351,9 +412,11 @@ fun BasicCardView(
                 }
                 title?.run {
                     Text(
+                        modifier = Modifier.height(titleHeight.dp),
                         text = this,
                         style = MaterialTheme.typography.body1,
-                        color = textColor
+                        color = textColor,
+                        onTextLayout = onTitleLayout
                     )
                 }
             }
@@ -429,4 +492,27 @@ fun BarBubble(
         }
         Text(style = fontStyle, text = text)
     }
+}
+
+//https://medium.com/@takahirom/understanding-the-jetpack-compose-layout-with-diagrams-1b7311765841
+@Composable
+fun HeightCalculator(
+    onCalculateHeight: (Int) -> Unit,
+    content: @Composable () -> Unit,
+) = Layout(content = content) { measures, constraints ->
+
+    val placeableList = measures.mapIndexed { _, measurable ->
+        measurable.measure(constraints)
+    }
+    val height = maxOf(placeableList.sumOf { it.height }, constraints.minHeight)
+    val width = maxOf(placeableList.maxOfOrNull { it.width } ?: 0, constraints.minWidth)
+    val layout = layout(width, height) {
+        var y = 0
+        placeableList.forEach { placeable: Placeable ->
+            placeable.placeRelative(x = 0, y = y)
+            y += placeable.height
+        }
+        onCalculateHeight(y)
+    }
+    layout
 }
